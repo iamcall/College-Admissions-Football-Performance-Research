@@ -1,0 +1,418 @@
+---
+title: "Case Competition"
+author: "Andrea, Aubrey, Danika, Marcie"
+format: pdf
+editor: visual
+---
+
+4/3/25
+
+```{r}
+library(nimble)
+
+#code will be in LearningSuite
+```
+
+4/1/25
+
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(ggplot2)
+library(car)  # For model diagnostics
+library(ggfortify)  # For plotting diagnostics
+
+# Load datasets
+football_records <- read_csv("~/Desktop/HW_files/college_football_records.csv")
+scorecard <- read_csv("~/Desktop/HW_files/combined_scorecard_data.csv")
+
+# Adjust football data year to be 2 years earlier (to match admissions effect)
+football_records <- football_records %>%
+  mutate(year = year + 2)  # Lag effect
+
+# Merge datasets based on university name and year
+merged_data <- scorecard %>%
+  left_join(football_records, by = c("INSTNM" = "scorecard_name", "Year" = "year"))
+
+# Remove unnecessary columns
+merged_data <- merged_data %>%
+  select(-team, -won, -lost, -tied, -notes)
+
+# Convert Win Percentage to numeric if necessary
+merged_data$Win.Percentage <- as.numeric(as.character(merged_data$Win.Percentage))
+
+# Create a Diversity Index
+merged_data <- merged_data %>%
+  mutate(Diversity_Index = 1 - (UGDS_WHITE^2 + UGDS_BLACK^2 + UGDS_HISP^2 + UGDS_ASIAN^2))
+
+# Run Multiple Linear Regression (Diversity vs. Football Performance)
+diversity_model <- lm(Diversity_Index ~ Win.Percentage + TUITIONFEE_IN + ADM_RATE, data = merged_data)
+
+# Show summary of regression results
+summary(diversity_model)
+
+# Visualize Relationship Between Football Success & Diversity
+ggplot(merged_data, aes(x = Win.Percentage, y = Diversity_Index)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "blue", se = TRUE) +
+  labs(title = "Football Success vs. Student Diversity",
+       x = "Win Percentage",
+       y = "Diversity Index") +
+  theme_minimal()
+
+# Check Regression Assumptions
+
+# Linearity & Residuals vs. Fitted
+autoplot(diversity_model, which = 1) + 
+  theme_minimal()
+
+# Normality of Residuals
+autoplot(diversity_model, which = 2) +
+  theme_minimal()
+
+# Equal Variance (Homoscedasticity)
+autoplot(diversity_model, which = 3) +
+  theme_minimal()
+
+# Check for influential points
+autoplot(diversity_model, which = 4) +
+  theme_minimal()
+
+```
+
+```{r}
+summary(merged_data$UGDS_BLACK)
+summary(merged_data$Win.Percentage)
+summary(merged_data$ADM_RATE)
+summary(merged_data$TUITIONFEE_IN)
+
+merged_data_clean <- merged_data %>%
+  drop_na(UGDS_BLACK, Win.Percentage, ADM_RATE, TUITIONFEE_IN, 
+          UGDS_WHITE, UGDS_HISP, UGDS_ASIAN)
+
+
+lm(UGDS_BLACK ~ Win.Percentage, data = merged_data)
+lm(UGDS_HISP ~ Win.Percentage, data = merged_data)
+lm(UGDS_ASIAN ~ Win.Percentage, data = merged_data)
+
+
+merged_data <- merged_data %>%
+  mutate(Diversity_Index = 1 - (UGDS_WHITE^2 + UGDS_BLACK^2 + UGDS_HISP^2 + UGDS_ASIAN^2))
+
+div_model <- lm(Diversity_Index ~ Win.Percentage + ADM_RATE + TUITIONFEE_IN, data = merged_data)
+summary(div_model)
+
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+
+football_records <- read_csv("~/Desktop/HW_files/college_football_records.csv")
+scorecard <- read_csv("~/Desktop/HW_files/combined_scorecard_data.csv")
+
+
+#getting rid of ties and NAs
+football_records <- football_records %>%
+  mutate(tied = as.numeric(tied))
+
+football_records <- football_records %>%
+  mutate(Win.Percentage = if_else(is.na(tied),
+                                  won / (won + lost),
+                                  won / (won + lost + tied)))
+
+football_records <- football_records %>%
+  mutate(year = year + 2)
+
+merged_data <- scorecard %>%
+  left_join(football_records, by = c("INSTNM" = "scorecard_name", "Year" = "year"))
+
+
+#combo thing
+merged_data_clean <- merged_data %>%
+  drop_na(UGDS_BLACK, UGDS_HISP, UGDS_ASIAN, UGDS_WHITE, Win.Percentage)
+
+
+#their own lms
+model_black <- lm(UGDS_BLACK ~ Win.Percentage, data = merged_data_clean)
+model_hisp  <- lm(UGDS_HISP ~ Win.Percentage, data = merged_data_clean)
+model_asian <- lm(UGDS_ASIAN ~ Win.Percentage, data = merged_data_clean)
+
+merged_data_clean <- merged_data_clean %>%
+  mutate(Diversity_Index = 1 - (UGDS_WHITE^2 + UGDS_BLACK^2 + UGDS_HISP^2 + UGDS_ASIAN^2))
+
+div_model <- lm(Diversity_Index ~ Win.Percentage, data = merged_data_clean)
+
+summary(model_black)
+summary(model_hisp)
+summary(model_asian)
+summary(div_model)
+
+
+
+ggplot(merged_data_clean, aes(x = Win.Percentage, y = Diversity_Index)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE, color = "blue") +
+  labs(title = "Does Football Success Impact Student Diversity?",
+       x = "Football Win Percentage",
+       y = "Diversity Index") +
+  theme_minimal()
+
+```
+
+```{r}
+# Linear models: race percentage ~ football win %
+model_white <- lm(UGDS_WHITE ~ Win.Percentage, data = merged_data_clean)
+model_black <- lm(UGDS_BLACK ~ Win.Percentage, data = merged_data_clean)
+model_hisp  <- lm(UGDS_HISP  ~ Win.Percentage, data = merged_data_clean)
+model_asian <- lm(UGDS_ASIAN ~ Win.Percentage, data = merged_data_clean)
+
+# View summaries
+summary(model_white)
+summary(model_black)
+summary(model_hisp)
+summary(model_asian)
+
+```
+
+```{r}
+# White
+ggplot(merged_data_clean, aes(x = Win.Percentage, y = UGDS_WHITE)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title = "Football Wins vs % White Students",
+       x = "Win Percentage", y = "% White Students") +
+  theme_minimal()
+
+# Black
+ggplot(merged_data_clean, aes(x = Win.Percentage, y = UGDS_BLACK)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "darkred") +
+  labs(title = "Football Wins vs % Black Students",
+       x = "Win Percentage", y = "% Black Students") +
+  theme_minimal()
+
+# Hispanic
+ggplot(merged_data_clean, aes(x = Win.Percentage, y = UGDS_HISP)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "orange") +
+  labs(title = "Football Wins vs % Hispanic Students",
+       x = "Win Percentage", y = "% Hispanic Students") +
+  theme_minimal()
+
+# Asian
+ggplot(merged_data_clean, aes(x = Win.Percentage, y = UGDS_ASIAN)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "purple") +
+  labs(title = "Football Wins vs % Asian Students",
+       x = "Win Percentage", y = "% Asian Students") +
+  theme_minimal()
+
+```
+
+# WHITE STUDENTS ATTEND MORE!!!
+
+```{r}
+# Load necessary packages
+library(ggplot2)
+library(dplyr)
+library(readr)
+
+
+# Load the merged dataset
+football_records <- read_csv("~/Desktop/HW_files/college_football_records.csv")
+scorecard <- read_csv("~/Desktop/HW_files/combined_scorecard_data.csv")
+
+
+football_records <- football_records %>%
+  mutate(tied = as.numeric(tied))
+
+football_records <- football_records %>%
+  mutate(Win.Percentage = if_else(is.na(tied),
+                                  won / (won + lost),
+                                  won / (won + lost + tied)))
+
+football_records <- football_records %>%
+  mutate(year = year + 2)
+
+merged_data <- scorecard %>%
+  left_join(football_records, by = c("INSTNM" = "scorecard_name", "Year" = "year"))
+
+
+# --- Clean and Format Categorical Variables ---
+
+# Convert REGION to factor and rename levels
+merged_data$REGION <- factor(merged_data$REGION)
+levels(merged_data$REGION) <- c(
+  "U.S. Service Schools",
+  "New England",
+  "Mid East",
+  "Great Lakes",
+  "Plains",
+  "Southeast",
+  "Southwest",
+  "Rocky Mountains",
+  "Far West",
+  "Outlying Areas"
+)
+# Set base level for REGION
+merged_data$REGION <- relevel(merged_data$REGION, ref = "Outlying Areas")
+
+# Convert HIGHDEG to factor and rename levels
+merged_data$HIGHDEG <- factor(merged_data$HIGHDEG, levels = 0:4,
+                              labels = c("Non-degree-granting", "Certificate", "Associate", "Bachelor's", "Graduate"))
+# Set base level for HIGHDEG
+merged_data$HIGHDEG <- relevel(merged_data$HIGHDEG, ref = "Associate")
+merged_data$Win.Percentage<- as.numeric(merged_data$Win.Percentage)
+
+# --- 1. Enrollment vs Football Success ---
+
+model_enrollment <- lm(UGDS ~ Win.Percentage * REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+summary(model_enrollment)
+
+
+# --- 2. Admissions Selectivity (Admission Rate, SAT, ACT) ---
+
+model_admission_rate <- lm(ADM_RATE ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+summary(model_admission_rate)
+
+model_SAT <- lm(SAT_AVG ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+summary(model_SAT)
+
+model_ACT <- lm(ACTCMMID ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+summary(model_ACT)
+
+# --- 3. Diversity Models: Gender and Race ---
+
+# Gender
+model_gender_women <- lm(UGDS_WOMEN ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+summary(model_gender_women)
+
+model_gender_men <- lm(UGDS_MEN ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+summary(model_gender_men)
+
+# Race
+model_black <- lm(UGDS_BLACK ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+model_white <- lm(UGDS_WHITE ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+model_hisp <- lm(UGDS_HISP ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+model_asian <- lm(UGDS_ASIAN ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+
+summary(model_black)
+summary(model_white)
+summary(model_hisp)
+summary(model_asian)
+
+
+# --- 4. AIC Model Selection to See Which Variables Matter Most ---
+
+# Clean data for model selection (remove NAs)
+vars_used <- c("UGDS", "Win.Percentage", "REGION", "HIGHDEG", "TUITIONFEE_IN", "TUITIONFEE_OUT", "SAT_AVG")
+model_data <- merged_data[complete.cases(merged_data[, vars_used]), ]
+
+# Base and full models
+base_mod <- lm(UGDS ~ 1, data = model_data)
+full_mod <- lm(UGDS ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT + SAT_AVG, data = model_data)
+
+# Stepwise model selection using AIC
+forw_AIC <- step(base_mod, direction = "forward", scope = list(lower = base_mod, upper = full_mod), trace = 0)
+summary(forw_AIC)
+
+
+# --- 5. Optional Visualization: Win % vs UGDS by Region ---
+
+ggplot(data = merged_data, aes(x = Win.Percentage, y = UGDS, color = REGION)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(
+    title = "Effect of Football Win Percentage on Undergraduate Enrollment by Region",
+    x = "Football Win Percentage",
+    y = "Undergraduate Enrollment"
+  ) +
+  theme_minimal()
+
+
+```
+
+```{r}
+# --- Filter to Most Recent Years ---
+
+# Replace 'YEAR' with the actual year column name if different
+
+merged_data_2015 <- merged_data %>% filter(Year >= 2015)
+ 
+# --- 1. Enrollment vs Football Success ---
+ 
+model_enrollment_2015 <- lm(UGDS ~ Win.Percentage * REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+
+summary(model_enrollment)
+ 
+ 
+# --- 2. Admissions Selectivity (Admission Rate, SAT, ACT) ---
+ 
+model_admission_rate_2015 <- lm(ADM_RATE ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+
+summary(model_admission_rate)
+ 
+model_SAT_2015 <- lm(SAT_AVG ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+
+summary(model_SAT)
+ 
+model_ACT_2015 <- lm(ACTCMMID ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+
+summary(model_ACT)
+ 
+ 
+# --- 3. Diversity Models: Gender and Race ---
+ 
+# Gender
+
+model_gender_women_2015 <- lm(UGDS_WOMEN ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+
+summary(model_gender_women)
+ 
+model_gender_men_2015 <- lm(UGDS_MEN ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+
+summary(model_gender_men)
+ 
+# Race
+
+model_black_2015 <- lm(UGDS_BLACK ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+
+model_white_2015 <- lm(UGDS_WHITE ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+
+model_hisp_2015 <- lm(UGDS_HISP ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+
+model_asian_2015 <- lm(UGDS_ASIAN ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT, data = merged_data)
+ 
+summary(model_black_2015)
+
+summary(model_white_2015)
+
+summary(model_hisp_2015)
+
+summary(model_asian_2015)
+ 
+ 
+# --- 4. AIC Model Selection: What Matters Most for UGDS? ---
+ 
+# Drop missing values in needed variables
+
+vars_used <- c("UGDS", "Win.Percentage", "REGION", "HIGHDEG", "TUITIONFEE_IN", "TUITIONFEE_OUT", "SAT_AVG")
+
+model_data <- merged_data[complete.cases(merged_data[, vars_used]), ]
+ 
+# Stepwise AIC
+
+base_mod <- lm(UGDS ~ 1, data = model_data)
+
+full_mod <- lm(UGDS ~ Win.Percentage + REGION + HIGHDEG + TUITIONFEE_IN + TUITIONFEE_OUT + SAT_AVG, data = model_data)
+ 
+forw_AIC <- step(base_mod, direction = "forward", scope = list(lower = base_mod, upper = full_mod), trace = 0)
+
+summary(forw_AIC)
+ 
+```
+
+```{r}
+
+```
